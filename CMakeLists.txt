@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 2.8)
+project(custom_shell)
+
+
+find_package(Boost REQUIRED COMPONENTS system thread)
+if(Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIRS})
+  add_executable(shell shell.cpp)
+find_package(Threads REQUIRED)
+if(THREADS_HAVE_PTHREAD_ARG)
+  target_compile_options(shell PUBLIC "-pthread")
+endif()
+if(CMAKE_THREAD_LIBS_INIT)
+  target_link_libraries(shell "${CMAKE_THREAD_LIBS_INIT}")
+endif()
+  
+endif()
