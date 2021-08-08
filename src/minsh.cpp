@@ -1,27 +1,22 @@
 /*
- * shell.h
+ * minsh.cpp
  *
  * Created on: Jul 19, 2021
  * Author: rudiejd <rudiejd@miamioh.edu>
  */
 
-#include <boost/asio.hpp>
-#include <boost/format.hpp>
 #include <cstdlib>
 #include <cstring>
-#include <string>
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <vector>
 #include <algorithm>
-#include <set>
-#include <tuple>
 #include <iomanip>
 #include <sys/wait.h>
+#include <unistd.h>
+#include <minsh.hpp>
 
-
-namespace custom_shell {
+namespace minsh {
     using iss = std::stringstream;
 
     /**
@@ -30,15 +25,12 @@ namespace custom_shell {
     * @param spl The character to split on
     * @return std::vector<std::string> (Vector of std::strings split on spl)
     */
-    const std::vector<std::string> splitCommand(std::string str, char sub = ' ') {
-        std::vector<std::string> res;
-        std::string word;
-        // replace all of the split characters with space to use std::string stream
+    const std::vector<std::string> Minsh::splitCommand(std::string str, char sub = ' ') { std::vector<std::string> res; std::string word; // replace all of the split characters with space to use std::string stream
         replace(std::begin(str), std::end(str), sub, ' ');
         // create std::string stream on modified str
         iss ss(str);
         // push each "word" delimited by spl into result std::vector
-        while (ss >> quoted(word)) {
+        while (ss >> std::quoted(word)) {
             res.push_back(word);
         }
         return res;
@@ -47,7 +39,7 @@ namespace custom_shell {
     /**
     * Fork and execute a command. Returns process id (PID)
     */
-    int forkNexec(std::vector<std::string>& argList) {
+    int Minsh::forkNexec(std::vector<std::string>& argList) {
         // Fork and save the pid of the child process
         int childPid = fork();
         // Call the myExec helper method in the child
@@ -75,7 +67,7 @@ namespace custom_shell {
     * @param line Line of shell code to execute
     * @param bool Reference to boolean that will be set true if process is empty
     */
-    void executeCommand(int& cp, std::string line, bool& empty) {
+    void Minsh::executeCommand(int& cp, std::string line, bool& empty) {
         empty = false;
         std::vector<std::string> command;
 
@@ -91,7 +83,7 @@ namespace custom_shell {
         cp = forkNexec(command);
     }
 
-    void wait(int childPid) {
+    void Minsh::wait(int childPid) {
         int exitCode = 0;
         waitpid(childPid, &exitCode, 0);
 		// alert for irregular exit code
@@ -107,14 +99,17 @@ namespace custom_shell {
     * @param prompt Prompt sent to user (default " > ")
     * @param parallel Whether the commands should be executed in parallel
     */
-    void process(std::istream& is = std::cin,
-            const std::string& prompt = "∫ ", bool parallel = false) {
+    void Minsh::process(std::istream& is, const std::string& prompt, bool parallel) {
         std::string line;
         // Vector containing all the child processes spawned (only necessary for
         // parallel execution
         std::vector<int> childProcs;
         // Keep prompting the user and extracting output
-        while (std::cout << prompt, getline(is, line)) {
+		char* login = getlogin();
+		char hostname[1024];
+		hostname[1023] = '\0';
+		gethostname(hostname, 1023);
+        while (std::cout << login << "@" << hostname << prompt, getline(is, line)) {
             // If the line asks us to exit, simply return to main.
             if (line == "exit") {
                 return;
@@ -138,9 +133,4 @@ namespace custom_shell {
             }
         }
     }
-}
-
-int main(int argc, char** argv) {
-    custom_shell::process();
-    return 0;
 }
