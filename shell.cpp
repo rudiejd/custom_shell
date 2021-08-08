@@ -114,7 +114,11 @@ namespace custom_shell {
         // parallel execution
         std::vector<int> childProcs;
         // Keep prompting the user and extracting output
-        while (std::cout << prompt, getline(is, line)) {
+		char* login = getlogin();
+		char hostname[1024];
+		hostname[1023] = '\0';
+		gethostname(hostname, 1023);
+        while (std::cout << login << "@" << hostname << prompt, getline(is, line)) {
             // If the line asks us to exit, simply return to main.
             if (line == "exit") {
                 return;
