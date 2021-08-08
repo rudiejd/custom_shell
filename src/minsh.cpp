@@ -15,6 +15,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <minsh.hpp>
+#include <wordexp.h>
 
 namespace minsh {
     using iss = std::stringstream;
@@ -55,7 +56,7 @@ namespace minsh {
             }
             args.push_back(nullptr);
             args.shrink_to_fit();
-            execvp(args[0], const_cast<char* const *>(args.data()));
+			execvp(args[0], const_cast<char* const *>(args.data()));
             throw std::runtime_error("Call to execvp failed for " + argList[0]);
         }
         // Control drops here only in the parent process!
@@ -79,6 +80,19 @@ namespace minsh {
         // Split command on space using helper method
         command = splitCommand(line);
 
+		if (command[0] == "cd") {
+			wordexp_t exp;
+			if (wordexp(command[1].c_str(), &exp, 0)) {
+				os << "minsh: directory change failed" << std::endl;
+			} else {
+				if (chdir(exp.we_wordv[0]) != 0) {
+					os << "minsh: directory change failed" << std::endl;
+				}
+			}
+			wordfree(&exp);
+			return;
+		}
+
         // Fork and execute command on new child process
         cp = forkNexec(command);
     }
@@ -88,28 +102,31 @@ namespace minsh {
         waitpid(childPid, &exitCode, 0);
 		// alert for irregular exit code
 		if (exitCode != 0) {
-			std::cout << "Error, exit code: " << exitCode << std::endl;
+			os << "Error, exit code: " << exitCode << std::endl;
 		}
     }
 
     /**
     * @brief Main method for executing shell commands. Reads commands from generic
-    * stream and prints output to std::cout
+    * stream and prints output to os
     * @param is Stream from which to read commands
     * @param prompt Prompt sent to user (default " > ")
     * @param parallel Whether the commands should be executed in parallel
     */
-    void Minsh::process(std::istream& is, const std::string& prompt, bool parallel) {
+    void Minsh::process(const std::string& prompt, bool parallel) {
         std::string line;
         // Vector containing all the child processes spawned (only necessary for
         // parallel execution
         std::vector<int> childProcs;
         // Keep prompting the user and extracting output
 		char* login = getlogin();
-		char hostname[1024];
+		char hostname[1024], directory[1024];
 		hostname[1023] = '\0';
+		directory[1023] = '\0';
 		gethostname(hostname, 1023);
-        while (std::cout << login << "@" << hostname << prompt, getline(is, line)) {
+		getcwd(directory, 1023);
+		os << "{" << login << "@" << hostname << ":" << directory << "}" << prompt;
+        while (getline(is, line)) {
             // If the line asks us to exit, simply return to main.
             if (line == "exit") {
                 return;
@@ -125,6 +142,9 @@ namespace minsh {
                     childProcs.push_back(cp);
                 }
             }
+			gethostname(hostname, 1023);
+			getcwd(directory, 1023);
+			os << "{" << login << "@" << hostname << ":" << directory << "}" << prompt;
         }
         // If we are running parallel, wait on all spawned processes
         if (parallel) {
