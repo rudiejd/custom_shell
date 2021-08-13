@@ -82,9 +82,19 @@ void Minsh::executeCommand(int& cp, std::string line, bool& empty) {
     empty = true;
     return;
   }
+  // push nonempty command to history
+  history.push_back(line);
   // Split command on space using helper method
   command = splitCommand(line);
 
+  // if it's not one of our custom commands, fork and exec the command
+  if (!doCustomCommand(command)) {
+      cp = forkNexec(command);
+  }
+}
+
+bool Minsh::doCustomCommand(std::vector<std::string>& command) {
+  bool ret = false;
   if (command[0] == "cd") {
     wordexp_t exp;
     if (wordexp(command[1].c_str(), &exp, 0)) {
@@ -95,11 +105,14 @@ void Minsh::executeCommand(int& cp, std::string line, bool& empty) {
       }
     }
     wordfree(&exp);
-    return;
+    ret = true;
+  } else if (command[0] == "history") {
+      for (int i = 0; i < history.size(); i++) {
+        os << i << " " << history[i] << std::endl;
+      }
+      ret = true; 
   }
-
-  // Fork and execute command on new child process
-  cp = forkNexec(command);
+  return ret;
 }
 
 void Minsh::wait(int childPid) {
